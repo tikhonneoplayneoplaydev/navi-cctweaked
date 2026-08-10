@@ -127,5 +127,4 @@ while true do
     end
     
     printCentered(12, "Hold Ctrl+T to exit", colors.lightGray, colors.black)
-    os.sleep(0.5)
 end
