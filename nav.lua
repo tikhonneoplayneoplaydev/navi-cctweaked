@@ -1,5 +1,5 @@
--- Fully Calibrated GPS Navigator for CC:Tweaked
--- Fixed angle calculation for Minecraft coordinate system
+-- Perfect GPS Navigator for CC:Tweaked (Color Pocket Computer)
+-- Fixes coordinate offset and strict MC positioning
 
 local targetX, targetZ
 
@@ -56,7 +56,7 @@ end
 targetX, targetZ = getTarget()
 if not targetX then return end
 
--- 8-Way arrow icons
+-- Detailed 8-Way arrows
 local arrowText = {
     N  = " ^ ", NE = " / ", E  = " > ", SE = " \\ ",
     S  = " v ", SW = " / ", W  = " < ", NW = " \\ "
@@ -70,29 +70,32 @@ while true do
     term.clearLine()
     printCentered(1, "GPS NAVIGATOR", colors.white, colors.blue)
     
-    local x, y, z = gps.locate(2)
+    -- Получаем координаты. Важно: отбрасываем Y (высоту), берем строго X и Z
+    local gpsX, gpsY, gpsZ = gps.locate(2)
     
-    if not x then
+    if not gpsX then
         term.setBackgroundColor(colors.black)
         printCentered(4, " NO SIGNAL! ", colors.white, colors.red)
         printCentered(6, "Check your", colors.lightGray, colors.black)
         printCentered(7, "GPS Hosts or", colors.lightGray, colors.black)
         printCentered(8, "wireless modem.", colors.lightGray, colors.black)
     else
-        -- Точный расчёт вектора движения в координатах Minecraft
-        local dx = targetX - x
-        local dz = targetZ - z
+        -- Округляем до целых блоков вниз, как в F3 (Block: -127 ... 131)
+        local curX = math.floor(gpsX)
+        local curZ = math.floor(gpsZ)
+        
+        -- Расчёт вектора
+        local dx = targetX - curX
+        local dz = targetZ - curZ
         local distance = math.floor(math.sqrt(dx^2 + dz^2))
         
-        -- ИСПРАВЛЕННАЯ МАТЕМАТИКА:
-        -- В atan2 передаем (dx, -dz), чтобы сопоставить математические оси с осями MC
+        -- Вычисление угла (0 = North, 90 = East, 180 = South, 270 = West)
         local angle = math.atan2(dx, -dz) * 180 / math.pi
-        if angle < 0 then angle = angle + 360 end -- Переводим в диапазон 0-360
+        if angle < 0 then angle = angle + 360 end
 
         local direction = ""
         local arrow = "?"
         
-        -- Строгая калибровка по сторонам света (0 = Север, 90 = Восток...)
         if angle >= 337.5 or angle < 22.5 then direction = "NORTH (-Z)"; arrow = arrowText.N
         elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; arrow = arrowText.NE
         elseif angle >= 67.5 and angle < 112.5 then direction = "EAST (+X)"; arrow = arrowText.E
@@ -103,9 +106,10 @@ while true do
         elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; arrow = arrowText.NW
         end
         
+        -- Отрисовка интерфейса
         term.setBackgroundColor(colors.black)
         term.setTextColor(colors.gray)
-        term.setCursorPos(2, 3)  term.write("My Pos: " .. math.floor(x) .. ", " .. math.floor(z))
+        term.setCursorPos(2, 3)  term.write("My Pos: " .. curX .. ", " .. curZ)
         term.setCursorPos(2, 4)  term.write("Target: " .. targetX .. ", " .. targetZ)
         
         if distance <= 2 then
