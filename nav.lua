@@ -1,5 +1,5 @@
--- Stable Cyberpunk GPS Navigator v2.3
--- Fixed screen flickering with 1-tick delay optimization
+-- Smart Cyberpunk GPS Navigator v2.4
+-- Ultra-fast GPS polling with change-detection (renders only on movement)
 
 local targetX, targetZ
 
@@ -68,94 +68,115 @@ local radars = {
     NW = { "\\  ", " o ", "   " }
 }
 
-while true do
-    -- ИСПРАВЛЕНИЕ: Стабильная задержка в 1 тик (0.05 сек). Экран больше не моргает!
-    os.sleep(0.05)
+-- Переменные для хранения предыдущей позиции (память рендера)
+local lastX, lastZ = nil, nil
+local firstRender = true
 
-    clearScreen(colors.black)
+while true do
+    -- Быстрый опрос GPS каждые 0.05 сек (1 тик)
+    os.sleep(0.05)
     
-    -- Neon top header
-    term.setBackgroundColor(colors.lightBlue)
-    term.setCursorPos(1, 1)
-    term.clearLine()
-    printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
-    
-    -- Получение переменных напрямую
     local gpsX, gpsY, gpsZ = gps.locate(2)
     
     if not gpsX then
-        term.setBackgroundColor(colors.black)
-        printCentered(5, " [ SIGNAL LOST ] ", colors.white, colors.red)
-        printCentered(7, "RECONNECTING TO HOSTS...", colors.gray, colors.black)
+        -- Если сигнал потерян, выводим ошибку один раз, чтобы не спамить экран
+        if lastX ~= "LOST" then
+            clearScreen(colors.black)
+            term.setBackgroundColor(colors.lightBlue)
+            term.setCursorPos(1, 1)
+            term.clearLine()
+            printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
+            
+            term.setBackgroundColor(colors.black)
+            printCentered(5, " [ SIGNAL LOST ] ", colors.white, colors.red)
+            printCentered(7, "RECONNECTING TO HOSTS...", colors.gray, colors.black)
+            printCentered(13, "[ Hold Ctrl+T to exit ]", colors.gray, colors.black)
+            lastX = "LOST"
+        end
     else
-        -- Округляем координаты
         local curX = math.floor(gpsX)
         local curZ = math.floor(gpsZ)
         
-        local dx = targetX - curX
-        local dz = targetZ - curZ
-        local distance = math.floor(math.sqrt(dx^2 + dz^2))
-        
-        -- Вычисление угла
-        local angle = math.atan2(dx, -dz) * 180 / math.pi
-        if angle < 0 then angle = angle + 360 end
+        -- УМНАЯ ПРОВЕРКА: Рисуем только если это первый запуск ИЛИ координаты изменились
+        if firstRender or curX ~= lastX or curZ ~= lastZ then
+            firstRender = false
+            lastX = curX
+            lastZ = curZ
+            
+            clearScreen(colors.black)
+            
+            -- Neon top header
+            term.setBackgroundColor(colors.lightBlue)
+            term.setCursorPos(1, 1)
+            term.clearLine()
+            printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
+            
+            -- Расчеты вектора и расстояния
+            local dx = targetX - curX
+            local dz = targetZ - curZ
+            local distance = math.floor(math.sqrt(dx^2 + dz^2))
+            
+            -- Вычисление угла азимута Minecraft
+            local angle = math.atan2(dx, -dz) * 180 / math.pi
+            if angle < 0 then angle = angle + 360 end
 
-        local direction = ""
-        local radIdx = "N"
-        
-        if angle >= 337.5 or angle < 22.5 then direction = "NORTH"; radIdx = "N"
-        elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; radIdx = "NE"
-        elseif angle >= 67.5 and angle < 112.5 then direction = "EAST"; radIdx = "E"
-        elseif angle >= 112.5 and angle < 157.5 then direction = "S-EAST"; radIdx = "SE"
-        elseif angle >= 157.5 and angle < 202.5 then direction = "SOUTH"; radIdx = "S"
-        elseif angle >= 202.5 and angle < 247.5 then direction = "S-WEST"; radIdx = "SW"
-        elseif angle >= 247.5 and angle < 292.5 then direction = "WEST"; radIdx = "W"
-        elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; radIdx = "NW"
-        end
-        
-        -- Отрисовка текста
-        term.setBackgroundColor(colors.black)
-        term.setTextColor(colors.lime)
-        term.setCursorPos(2, 3)  term.write("X: " .. curX)
-        term.setCursorPos(2, 4)  term.write("Z: " .. curZ)
-        
-        term.setTextColor(colors.gray)
-        term.setCursorPos(2, 5)  term.write("Trgt X: " .. targetX)
-        term.setCursorPos(2, 6)  term.write("Trgt Z: " .. targetZ)
-        
-        term.setCursorPos(1, 7)
-        term.setTextColor(colors.lightGray)
-        term.write("-----------------")
-        
-        if distance <= 2 then
-            term.setBackgroundColor(colors.green)
-            printCentered(9, " TARGET REACHED ", colors.white, colors.green)
+            local direction = ""
+            local radIdx = "N"
+            
+            if angle >= 337.5 or angle < 22.5 then direction = "NORTH"; radIdx = "N"
+            elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; radIdx = "NE"
+            elseif angle >= 67.5 and angle < 112.5 then direction = "EAST"; radIdx = "E"
+            elseif angle >= 112.5 and angle < 157.5 then direction = "S-EAST"; radIdx = "SE"
+            elseif angle >= 157.5 and angle < 202.5 then direction = "SOUTH"; radIdx = "S"
+            elseif angle >= 202.5 and angle < 247.5 then direction = "S-WEST"; radIdx = "SW"
+            elseif angle >= 247.5 and angle < 292.5 then direction = "WEST"; radIdx = "W"
+            elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; radIdx = "NW"
+            end
+            
+            -- Отрисовка текстового блока
             term.setBackgroundColor(colors.black)
-            printCentered(10, "You are at destination", colors.lime, colors.black)
-        else
-            term.setTextColor(colors.white)
-            term.setCursorPos(2, 8)
-            term.write("DIST: ")
-            term.setTextColor(colors.yellow)
-            term.write(distance .. " blk")
+            term.setTextColor(colors.lime)
+            term.setCursorPos(2, 3)  term.write("X: " .. curX)
+            term.setCursorPos(2, 4)  term.write("Z: " .. curZ)
             
-            term.setTextColor(colors.white)
-            term.setCursorPos(2, 9)
-            term.write("HEADING: ")
-            term.setTextColor(colors.cyan)
-            term.write(direction)
+            term.setTextColor(colors.gray)
+            term.setCursorPos(2, 5)  term.write("Trgt X: " .. targetX)
+            term.setCursorPos(2, 6)  term.write("Trgt Z: " .. targetZ)
             
-            -- Рисуем радар в углу
-            local w, h = term.getSize()
-            local radarFrame = radars[radIdx]
-            term.setBackgroundColor(colors.black)
-            term.setTextColor(colors.red)
+            term.setCursorPos(1, 7)
+            term.setTextColor(colors.lightGray)
+            term.write("-----------------")
             
-            term.setCursorPos(w - 3, h - 3) term.write(radarFrame[1])
-            term.setCursorPos(w - 3, h - 2) term.write(radarFrame[2])
-            term.setCursorPos(w - 3, h - 1) term.write(radarFrame[3])
+            if distance <= 2 then
+                term.setBackgroundColor(colors.green)
+                printCentered(9, " TARGET REACHED ", colors.white, colors.green)
+                term.setBackgroundColor(colors.black)
+                printCentered(10, "You are at destination", colors.lime, colors.black)
+            else
+                term.setTextColor(colors.white)
+                term.setCursorPos(2, 8)
+                term.write("DIST: ")
+                term.setTextColor(colors.yellow)
+                term.write(distance .. " blk")
+                
+                term.setTextColor(colors.white)
+                term.setCursorPos(2, 9)
+                term.write("HEADING: ")
+                term.setTextColor(colors.cyan)
+                term.write(direction)
+                
+                -- Отрисовка радара с жесткими индексами строк
+                local w, h = term.getSize()
+                local radarFrame = radars[radIdx]
+                term.setBackgroundColor(colors.black)
+                term.setTextColor(colors.red)
+                
+                term.setCursorPos(w - 3, h - 3) term.write(radarFrame[1])
+                term.setCursorPos(w - 3, h - 2) term.write(radarFrame[2])
+                term.setCursorPos(w - 3, h - 1) term.write(radarFrame[3])
+            end
+            
+            printCentered(13, "[ Hold Ctrl+T to exit ]", colors.gray, colors.black)
         end
     end
-    
-    printCentered(13, "[ Hold Ctrl+T to exit ]", colors.gray, colors.black)
 end
