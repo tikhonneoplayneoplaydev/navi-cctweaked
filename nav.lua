@@ -1,4 +1,4 @@
--- Ultimate Cyberpunk GPS Navigator v2.0
+-- Ultimate Cyberpunk GPS Navigator v2.1 (Fixed & Tested)
 -- Zero delay, animated real-time radar compass
 
 local targetX, targetZ
@@ -56,7 +56,7 @@ end
 targetX, targetZ = getTarget()
 if not targetX then return end
 
--- Текстуры радара для каждого из 8 направлений (размер 3х3)
+-- Radar frames for 8 directions
 local radars = {
     N  = { " | ", " o ", "   " },
     NE = { "  /", " o ", "   " },
@@ -69,28 +69,27 @@ local radars = {
 }
 
 while true do
-    -- Убрали os.sleep. Опрос идет на максимальной скорости процессора.
-    -- Защита от зависания компьютера (минимальный пропуск тика игры)
+    -- Защита от перегрузки процессора (пропуск тика)
     os.queueEvent("fake_event")
     os.pullEvent("fake_event")
 
     clearScreen(colors.black)
     
-    -- Стильная неоновая шапка
+    -- Neon top header
     term.setBackgroundColor(colors.lightBlue)
     term.setCursorPos(1, 1)
     term.clearLine()
     printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
     
-    -- Получаем координаты через массив таблицы
+    -- Получаем координаты в таблицу
     local pos = { gps.locate(2) }
     
-    if #pos == 0 or not pos[1] then
+    if #pos == 0 then
         term.setBackgroundColor(colors.black)
         printCentered(5, " [ SIGNAL LOST ] ", colors.white, colors.red)
         printCentered(7, "RECONNECTING TO HOSTS...", colors.gray, colors.black)
     else
-        -- Берем строго 1-й и 3-й индексы (X и Z)
+        -- СТРОГИЕ ИНДЕКСЫ: 1 — это X, 3 — это Z
         local curX = math.floor(pos[1])
         local curZ = math.floor(pos[3])
         
@@ -98,7 +97,7 @@ while true do
         local dz = targetZ - curZ
         local distance = math.floor(math.sqrt(dx^2 + dz^2))
         
-        -- Вычисление угла (0 = North, 90 = East, 180 = South, 270 = West)
+        -- Вычисление угла Minecraft-азимута
         local angle = math.atan2(dx, -dz) * 180 / math.pi
         if angle < 0 then angle = angle + 360 end
 
@@ -115,7 +114,7 @@ while true do
         elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; radIdx = "NW"
         end
         
-        -- Информационный блок (слева)
+        -- Вывод информации на экран планшета
         term.setBackgroundColor(colors.black)
         term.setTextColor(colors.lime)
         term.setCursorPos(2, 3)  term.write("X: " .. curX)
@@ -130,13 +129,11 @@ while true do
         term.write("-----------------")
         
         if distance <= 2 then
-            -- Эффектное прибытие
             term.setBackgroundColor(colors.green)
             printCentered(9, " TARGET REACHED ", colors.white, colors.green)
             term.setBackgroundColor(colors.black)
             printCentered(10, "You are at destination", colors.lime, colors.black)
         else
-            -- Вывод дистанции и направления
             term.setTextColor(colors.white)
             term.setCursorPos(2, 8)
             term.write("DIST: ")
@@ -149,11 +146,11 @@ while true do
             term.setTextColor(colors.cyan)
             term.write(direction)
             
-            -- Рисуем анимированный псевдографический радар в правом нижнем углу
+            -- Отрисовка радара
             local w, h = term.getSize()
             local radarFrame = radars[radIdx]
             term.setBackgroundColor(colors.black)
-            term.setTextColor(colors.red) -- Красная стрелочка на радаре
+            term.setTextColor(colors.red)
             
             term.setCursorPos(w - 3, h - 3) term.write(radarFrame[1])
             term.setCursorPos(w - 3, h - 2) term.write(radarFrame[2])
@@ -161,6 +158,5 @@ while true do
         end
     end
     
-    -- Нижняя подсказка
     printCentered(13, "[ Hold Ctrl+T to exit ]", colors.gray, colors.black)
 end
