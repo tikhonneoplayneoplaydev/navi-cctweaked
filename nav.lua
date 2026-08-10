@@ -1,99 +1,148 @@
--- Очистка экрана и настройка
-term.clear()
-term.setCursorPos(1,1)
+-- Advanced GPS Navigator for CC:Tweaked (Color Pocket Computer)
+-- Supports English interface and graphical arrows
 
--- Функция для запроса координат цели
+local targetX, targetZ
+
+-- Function to draw text center-aligned
+local function printCentered(y, text, textColor, bgColor)
+    local w, h = term.getSize()
+    term.setCursorPos(math.floor((w - #text) / 2) + 1, y)
+    if textColor then term.setTextColor(textColor) end
+    if bgColor then term.setBackgroundColor(bgColor) end
+    term.write(text)
+end
+
+-- Clear screen with background color
+local function clearScreen(bgColor)
+    term.setBackgroundColor(bgColor or colors.black)
+    term.clear()
+end
+
+-- Beautiful Input Dialog
 local function getTarget()
-    print("=== GPS НАВИГАТОР ===")
-    io.write("Введите X цели: ")
+    clearScreen(colors.gray)
+    
+    -- Top Bar
+    term.setCursorPos(1, 1)
+    term.setBackgroundColor(colors.lightGray)
+    term.clearLine()
+    printCentered(1, " GPS TARGET SETUP ", colors.black, colors.lightGray)
+    
+    term.setBackgroundColor(colors.gray)
+    term.setTextColor(colors.white)
+    
+    term.setCursorPos(2, 3)
+    term.write("Enter Target X:")
+    term.setCursorPos(2, 4)
+    term.setBackgroundColor(colors.black)
+    term.write("               ")
+    term.setCursorPos(2, 4)
     local tx = tonumber(io.read())
-    io.write("Введите Z цели: ")
+    
+    term.setBackgroundColor(colors.gray)
+    term.setCursorPos(2, 6)
+    term.write("Enter Target Z:")
+    term.setCursorPos(2, 7)
+    term.setBackgroundColor(colors.black)
+    term.write("               ")
+    term.setCursorPos(2, 7)
     local tz = tonumber(io.read())
+    
     if not tx or not tz then
-        print("Ошибка: вводите только числа!")
+        clearScreen(colors.red)
+        printCentered(4, "ERROR:", colors.white, colors.red)
+        printCentered(5, "Invalid numbers!", colors.white, colors.red)
         os.sleep(2)
         return nil, nil
     end
     return tx, tz
 end
 
-local targetX, targetZ = getTarget()
+-- Request targets
+targetX, targetZ = getTarget()
 if not targetX then return end
 
--- Таблица символов-стрелок для 8 направлений
-local arrows = {
-    N  = "^",  -- Север (-Z)
-    NE = "/",  -- Северо-Восток
-    E  = ">",  -- Восток (+X)
-    SE = "\\", -- Юго-Восток
-    S  = "v",  -- Юг (+Z)
-    SW = "/",  -- Юго-Запад
-    W  = "<",  -- Запад (-X)
-    NW = "\\"  -- Северо-Запад
+-- 8-Way detailed arrow textures for small pocket screens
+local arrowText = {
+    N  = " ^ ",
+    NE = " / ",
+    E  = " > ",
+    SE = " \\ ",
+    S  = " v ",
+    SW = " / ",
+    W  = " < ",
+    NW = " \\ "
 }
 
--- Главный цикл обновления данных
+-- Main execution loop
 while true do
-    term.clear()
-    term.setCursorPos(1,1)
+    -- Draw clean dark background
+    clearScreen(colors.black)
     
-    -- Получаем текущие координаты через GPS-хосты
+    -- Header
+    term.setBackgroundColor(colors.blue)
+    term.setCursorPos(1, 1)
+    term.clearLine()
+    printCentered(1, "GPS NAVIGATOR", colors.white, colors.blue)
+    
+    -- Get current GPS Location (timeout 2 seconds)
     local x, y, z = gps.locate(2)
     
     if not x then
-        term.setTextColor(colors.red)
-        print("Ошибка: Нет сигнала GPS!")
-        print("Проверьте модем или хосты.")
-        term.setTextColor(colors.white)
+        -- GPS Signal Lost UI
+        term.setBackgroundColor(colors.black)
+        printCentered(4, " NO SIGNAL! ", colors.white, colors.red)
+        printCentered(6, "Check your", colors.lightGray, colors.black)
+        printCentered(7, "GPS Hosts or", colors.lightGray, colors.black)
+        printCentered(8, "wireless modem.", colors.lightGray, colors.black)
     else
-        -- Считаем разницу координат и расстояние
+        -- Math calculations
         local dx = targetX - x
         local dz = targetZ - z
         local distance = math.floor(math.sqrt(dx^2 + dz^2))
         
-        -- Считаем угол в радианах и переводим в градусы
         local angle = math.atan2(dz, dx) * 180 / math.pi
-        -- Корректируем угол, чтобы 0 градусов был строго на Севере (-Z в Minecraft)
         angle = (angle + 90) % 360
         if angle < 0 then angle = angle + 360 end
-
-        -- Определяем сторону света и стрелку
+        
         local direction = ""
         local arrow = "?"
         
-        if angle >= 337.5 or angle < 22.5 then direction = "Север (-Z)"; arrow = arrows.N
-        elseif angle >= 22.5 and angle < 67.5 then direction = "Сев-Восток"; arrow = arrows.NE
-        elseif angle >= 67.5 and angle < 112.5 then direction = "Восток (+X)"; arrow = arrows.E
-        elseif angle >= 112.5 and angle < 157.5 then direction = "Юго-Восток"; arrow = arrows.SE
-        elseif angle >= 157.5 and angle < 202.5 then direction = "Юг (+Z)"; arrow = arrows.S
-        elseif angle >= 202.5 and angle < 247.5 then direction = "Юго-Запад"; arrow = arrows.SW
-        elseif angle >= 247.5 and angle < 292.5 then direction = "Запад (-X)"; arrow = arrows.W
-        elseif angle >= 292.5 and angle < 337.5 then direction = "Сев-Запад"; arrow = arrows.NW
+        if angle >= 337.5 or angle < 22.5 then direction = "NORTH (-Z)"; arrow = arrowText.N
+        elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; arrow = arrowText.NE
+        elseif angle >= 67.5 and angle < 112.5 then direction = "EAST (+X)"; arrow = arrowText.E
+        elseif angle >= 112.5 and angle < 157.5 then direction = "S-EAST"; arrow = arrowText.SE
+        elseif angle >= 157.5 and angle < 202.5 then direction = "SOUTH (+Z)"; arrow = arrowText.S
+        elseif angle >= 202.5 and angle < 247.5 then direction = "S-WEST"; arrow = arrowText.SW
+        elseif angle >= 247.5 and angle < 292.5 then direction = "WEST (-X)"; arrow = arrowText.W
+        elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; arrow = arrowText.NW
         end
-
-        -- Вывод интерфейса на экран планшета
-        print("=== НАВИГАЦИЯ ===")
-        print("Вы тут: " .. math.floor(x) .. ", " .. math.floor(z))
-        print("Цель  : " .. targetX .. ", " .. targetZ)
-        print("-----------------")
         
+        -- Render coordinates block
+        term.setBackgroundColor(colors.black)
+        term.setTextColor(colors.gray)
+        term.setCursorPos(2, 3)  term.write("My Pos: " .. math.floor(x) .. ", " .. math.floor(z))
+        term.setCursorPos(2, 4)  term.write("Target: " .. targetX .. ", " .. targetZ)
+        
+        -- Render Navigation Info
         if distance <= 2 then
-            term.setTextColor(colors.green)
-            print(" Вы на месте! ")
-            term.setTextColor(colors.white)
+            printCentered(7, " ARRIVED! ", colors.white, colors.green)
+            printCentered(8, "You are at target", colors.lightGray, colors.black)
         else
-            print("Дистанция: " .. distance .. " бл.")
-            print("Идти на  : " .. direction)
-            print("")
-            -- Рисуем большую стрелку по центру
-            local w, h = term.getSize()
-            term.setCursorPos(math.floor(w/2), h - 1)
-            term.setTextColor(colors.yellow)
-            print(arrow)
+            -- Print distance and direction text
             term.setTextColor(colors.white)
+            term.setCursorPos(2, 6)
+            term.write("Dist: " .. distance .. " blocks")
+            term.setCursorPos(2, 7)
+            term.write("Turn: " .. direction)
+            
+            -- Graphical Arrow Display
+            printCentered(9, arrow, colors.black, colors.yellow)
         end
     end
     
-    print("\n[Для выхода зажмите Ctrl+T]")
-    os.sleep(1) -- Обновление каждую секунду
+    -- Footer reminder
+    printCentered(12, "Hold Ctrl+T to exit", colors.lightGray, colors.black)
+    
+    os.sleep(0.5) -- Fast responsive updates (twice per second)
 end
