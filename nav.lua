@@ -1,5 +1,5 @@
--- Advanced GPS Navigator for CC:Tweaked (Color Pocket Computer)
--- Supports English interface and graphical arrows
+--Advanced GPS Navigator for CC:Tweaked (Color Pocket Computer)
+--Supports English interface and graphical arrows
 
 local targetX, targetZ
 
