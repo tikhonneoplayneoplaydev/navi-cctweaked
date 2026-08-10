@@ -1,5 +1,5 @@
--- Ultimate 100% Fixed GPS Navigator for CC:Tweaked
--- Matches internal 'gps locate' logic directly
+-- Ultimate Cyberpunk GPS Navigator v2.0
+-- Zero delay, animated real-time radar compass
 
 local targetX, targetZ
 
@@ -19,9 +19,9 @@ end
 local function getTarget()
     clearScreen(colors.gray)
     term.setCursorPos(1, 1)
-    term.setBackgroundColor(colors.lightGray)
+    term.setBackgroundColor(colors.cyan)
     term.clearLine()
-    printCentered(1, " GPS TARGET SETUP ", colors.black, colors.lightGray)
+    printCentered(1, " [ TARGET COORDS ] ", colors.black, colors.cyan)
     
     term.setBackgroundColor(colors.gray)
     term.setTextColor(colors.white)
@@ -47,7 +47,7 @@ local function getTarget()
         clearScreen(colors.red)
         printCentered(4, "ERROR:", colors.white, colors.red)
         printCentered(5, "Invalid numbers!", colors.white, colors.red)
-        os.sleep(2)
+        os.sleep(1)
         return nil, nil
     end
     return tx, tz
@@ -56,75 +56,111 @@ end
 targetX, targetZ = getTarget()
 if not targetX then return end
 
--- Detailed 8-Way arrows
-local arrowText = {
-    N  = " ^ ", NE = " / ", E  = " > ", SE = " \\ ",
-    S  = " v ", SW = " / ", W  = " < ", NW = " \\ "
+-- Текстуры радара для каждого из 8 направлений (размер 3х3)
+local radars = {
+    N  = { " | ", " o ", "   " },
+    NE = { "  /", " o ", "   " },
+    E  = { "   ", " o-", "   " },
+    SE = { "   ", " o ", "  \\" },
+    S  = { "   ", " o ", " | " },
+    SW = { "   ", " o ", "/  " },
+    W  = { "   ", "-o ", "   " },
+    NW = { "\\  ", " o ", "   " }
 }
 
 while true do
+    -- Убрали os.sleep. Опрос идет на максимальной скорости процессора.
+    -- Защита от зависания компьютера (минимальный пропуск тика игры)
+    os.queueEvent("fake_event")
+    os.pullEvent("fake_event")
+
     clearScreen(colors.black)
     
-    term.setBackgroundColor(colors.blue)
+    -- Стильная неоновая шапка
+    term.setBackgroundColor(colors.lightBlue)
     term.setCursorPos(1, 1)
     term.clearLine()
-    printCentered(1, "GPS NAVIGATOR", colors.white, colors.blue)
+    printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
     
-    -- Прямой запрос к API без промежуточных переменных
+    -- Получаем координаты через массив таблицы
     local pos = { gps.locate(2) }
     
     if #pos == 0 or not pos[1] then
         term.setBackgroundColor(colors.black)
-        printCentered(4, " NO SIGNAL! ", colors.white, colors.red)
-        printCentered(6, "Check your", colors.lightGray, colors.black)
-        printCentered(7, "GPS Hosts or", colors.lightGray, colors.black)
-        printCentered(8, "wireless modem.", colors.lightGray, colors.black)
+        printCentered(5, " [ SIGNAL LOST ] ", colors.white, colors.red)
+        printCentered(7, "RECONNECTING TO HOSTS...", colors.gray, colors.black)
     else
-        -- Строгая привязка индексов к осям (1 - X, 3 - Z)
+        -- Берем строго 1-й и 3-й индексы (X и Z)
         local curX = math.floor(pos[1])
         local curZ = math.floor(pos[3])
         
-        -- Расчёт вектора
         local dx = targetX - curX
         local dz = targetZ - curZ
         local distance = math.floor(math.sqrt(dx^2 + dz^2))
         
-        -- Вычисление точного угла
+        -- Вычисление угла (0 = North, 90 = East, 180 = South, 270 = West)
         local angle = math.atan2(dx, -dz) * 180 / math.pi
         if angle < 0 then angle = angle + 360 end
 
         local direction = ""
-        local arrow = "?"
+        local radIdx = "N"
         
-        if angle >= 337.5 or angle < 22.5 then direction = "NORTH (-Z)"; arrow = arrowText.N
-        elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; arrow = arrowText.NE
-        elseif angle >= 67.5 and angle < 112.5 then direction = "EAST (+X)"; arrow = arrowText.E
-        elseif angle >= 112.5 and angle < 157.5 then direction = "S-EAST"; arrow = arrowText.SE
-        elseif angle >= 157.5 and angle < 202.5 then direction = "SOUTH (+Z)"; arrow = arrowText.S
-        elseif angle >= 202.5 and angle < 247.5 then direction = "S-WEST"; arrow = arrowText.SW
-        elseif angle >= 247.5 and angle < 292.5 then direction = "WEST (-X)"; arrow = arrowText.W
-        elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; arrow = arrowText.NW
+        if angle >= 337.5 or angle < 22.5 then direction = "NORTH"; radIdx = "N"
+        elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; radIdx = "NE"
+        elseif angle >= 67.5 and angle < 112.5 then direction = "EAST"; radIdx = "E"
+        elseif angle >= 112.5 and angle < 157.5 then direction = "S-EAST"; radIdx = "SE"
+        elseif angle >= 157.5 and angle < 202.5 then direction = "SOUTH"; radIdx = "S"
+        elseif angle >= 202.5 and angle < 247.5 then direction = "S-WEST"; radIdx = "SW"
+        elseif angle >= 247.5 and angle < 292.5 then direction = "WEST"; radIdx = "W"
+        elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; radIdx = "NW"
         end
         
-        -- Отрисовка интерфейса
+        -- Информационный блок (слева)
         term.setBackgroundColor(colors.black)
+        term.setTextColor(colors.lime)
+        term.setCursorPos(2, 3)  term.write("X: " .. curX)
+        term.setCursorPos(2, 4)  term.write("Z: " .. curZ)
+        
         term.setTextColor(colors.gray)
-        term.setCursorPos(2, 3)  term.write("My Pos: " .. curX .. ", " .. curZ)
-        term.setCursorPos(2, 4)  term.write("Target: " .. targetX .. ", " .. targetZ)
+        term.setCursorPos(2, 5)  term.write("Trgt X: " .. targetX)
+        term.setCursorPos(2, 6)  term.write("Trgt Z: " .. targetZ)
+        
+        term.setCursorPos(1, 7)
+        term.setTextColor(colors.lightGray)
+        term.write("-----------------")
         
         if distance <= 2 then
-            printCentered(7, " ARRIVED! ", colors.white, colors.green)
-            printCentered(8, "You are at target", colors.lightGray, colors.black)
+            -- Эффектное прибытие
+            term.setBackgroundColor(colors.green)
+            printCentered(9, " TARGET REACHED ", colors.white, colors.green)
+            term.setBackgroundColor(colors.black)
+            printCentered(10, "You are at destination", colors.lime, colors.black)
         else
+            -- Вывод дистанции и направления
             term.setTextColor(colors.white)
-            term.setCursorPos(2, 6)
-            term.write("Dist: " .. distance .. " blocks")
-            term.setCursorPos(2, 7)
-            term.write("Turn: " .. direction)
+            term.setCursorPos(2, 8)
+            term.write("DIST: ")
+            term.setTextColor(colors.yellow)
+            term.write(distance .. " blk")
             
-            printCentered(9, arrow, colors.black, colors.yellow)
+            term.setTextColor(colors.white)
+            term.setCursorPos(2, 9)
+            term.write("HEADING: ")
+            term.setTextColor(colors.cyan)
+            term.write(direction)
+            
+            -- Рисуем анимированный псевдографический радар в правом нижнем углу
+            local w, h = term.getSize()
+            local radarFrame = radars[radIdx]
+            term.setBackgroundColor(colors.black)
+            term.setTextColor(colors.red) -- Красная стрелочка на радаре
+            
+            term.setCursorPos(w - 3, h - 3) term.write(radarFrame[1])
+            term.setCursorPos(w - 3, h - 2) term.write(radarFrame[2])
+            term.setCursorPos(w - 3, h - 1) term.write(radarFrame[3])
         end
     end
-    os.sleep(0.05)
-    printCentered(12, "Hold Ctrl+T to exit", colors.lightGray, colors.black)
+    
+    -- Нижняя подсказка
+    printCentered(13, "[ Hold Ctrl+T to exit ]", colors.gray, colors.black)
 end
