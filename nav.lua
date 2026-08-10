@@ -1,5 +1,5 @@
--- Ultimate Cyberpunk GPS Navigator v2.2 (No-Bug Edition)
--- 100% stable direct coordinate assignment
+-- Stable Cyberpunk GPS Navigator v2.3
+-- Fixed screen flickering with 1-tick delay optimization
 
 local targetX, targetZ
 
@@ -69,9 +69,8 @@ local radars = {
 }
 
 while true do
-    -- Защита от перегрузки процессора (пропуск тика)
-    os.queueEvent("fake_event")
-    os.pullEvent("fake_event")
+    -- ИСПРАВЛЕНИЕ: Стабильная задержка в 1 тик (0.05 сек). Экран больше не моргает!
+    os.sleep(0.05)
 
     clearScreen(colors.black)
     
@@ -81,7 +80,7 @@ while true do
     term.clearLine()
     printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
     
-    -- ПРЯМОЕ ПОЛУЧЕНИЕ ПЕРЕМЕННЫХ БЕЗ ТАБЛИЦ И ИНДЕКСОВ
+    -- Получение переменных напрямую
     local gpsX, gpsY, gpsZ = gps.locate(2)
     
     if not gpsX then
@@ -89,7 +88,7 @@ while true do
         printCentered(5, " [ SIGNAL LOST ] ", colors.white, colors.red)
         printCentered(7, "RECONNECTING TO HOSTS...", colors.gray, colors.black)
     else
-        -- Округляем полученные переменные напрямую
+        -- Округляем координаты
         local curX = math.floor(gpsX)
         local curZ = math.floor(gpsZ)
         
@@ -97,7 +96,7 @@ while true do
         local dz = targetZ - curZ
         local distance = math.floor(math.sqrt(dx^2 + dz^2))
         
-        -- Вычисление угла Minecraft-азимута
+        -- Вычисление угла
         local angle = math.atan2(dx, -dz) * 180 / math.pi
         if angle < 0 then angle = angle + 360 end
 
@@ -114,7 +113,7 @@ while true do
         elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; radIdx = "NW"
         end
         
-        -- Вывод информации на экран планшета
+        -- Отрисовка текста
         term.setBackgroundColor(colors.black)
         term.setTextColor(colors.lime)
         term.setCursorPos(2, 3)  term.write("X: " .. curX)
@@ -146,7 +145,7 @@ while true do
             term.setTextColor(colors.cyan)
             term.write(direction)
             
-            -- Отрисовка радара
+            -- Рисуем радар в углу
             local w, h = term.getSize()
             local radarFrame = radars[radIdx]
             term.setBackgroundColor(colors.black)
