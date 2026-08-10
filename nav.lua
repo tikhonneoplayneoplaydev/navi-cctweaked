@@ -1,9 +1,8 @@
---Advanced GPS Navigator for CC:Tweaked (Color Pocket Computer)
---Supports English interface and graphical arrows
+-- Fully Calibrated GPS Navigator for CC:Tweaked
+-- Fixed angle calculation for Minecraft coordinate system
 
 local targetX, targetZ
 
--- Function to draw text center-aligned
 local function printCentered(y, text, textColor, bgColor)
     local w, h = term.getSize()
     term.setCursorPos(math.floor((w - #text) / 2) + 1, y)
@@ -12,17 +11,13 @@ local function printCentered(y, text, textColor, bgColor)
     term.write(text)
 end
 
--- Clear screen with background color
 local function clearScreen(bgColor)
     term.setBackgroundColor(bgColor or colors.black)
     term.clear()
 end
 
--- Beautiful Input Dialog
 local function getTarget()
     clearScreen(colors.gray)
-    
-    -- Top Bar
     term.setCursorPos(1, 1)
     term.setBackgroundColor(colors.lightGray)
     term.clearLine()
@@ -58,56 +53,46 @@ local function getTarget()
     return tx, tz
 end
 
--- Request targets
 targetX, targetZ = getTarget()
 if not targetX then return end
 
--- 8-Way detailed arrow textures for small pocket screens
+-- 8-Way arrow icons
 local arrowText = {
-    N  = " ^ ",
-    NE = " / ",
-    E  = " > ",
-    SE = " \\ ",
-    S  = " v ",
-    SW = " / ",
-    W  = " < ",
-    NW = " \\ "
+    N  = " ^ ", NE = " / ", E  = " > ", SE = " \\ ",
+    S  = " v ", SW = " / ", W  = " < ", NW = " \\ "
 }
 
--- Main execution loop
 while true do
-    -- Draw clean dark background
     clearScreen(colors.black)
     
-    -- Header
     term.setBackgroundColor(colors.blue)
     term.setCursorPos(1, 1)
     term.clearLine()
     printCentered(1, "GPS NAVIGATOR", colors.white, colors.blue)
     
-    -- Get current GPS Location (timeout 2 seconds)
     local x, y, z = gps.locate(2)
     
     if not x then
-        -- GPS Signal Lost UI
         term.setBackgroundColor(colors.black)
         printCentered(4, " NO SIGNAL! ", colors.white, colors.red)
         printCentered(6, "Check your", colors.lightGray, colors.black)
         printCentered(7, "GPS Hosts or", colors.lightGray, colors.black)
         printCentered(8, "wireless modem.", colors.lightGray, colors.black)
     else
-        -- Math calculations
+        -- Точный расчёт вектора движения в координатах Minecraft
         local dx = targetX - x
         local dz = targetZ - z
         local distance = math.floor(math.sqrt(dx^2 + dz^2))
         
-        local angle = math.atan2(dz, dx) * 180 / math.pi
-        angle = (angle + 90) % 360
-        if angle < 0 then angle = angle + 360 end
-        
+        -- ИСПРАВЛЕННАЯ МАТЕМАТИКА:
+        -- В atan2 передаем (dx, -dz), чтобы сопоставить математические оси с осями MC
+        local angle = math.atan2(dx, -dz) * 180 / math.pi
+        if angle < 0 then angle = angle + 360 end -- Переводим в диапазон 0-360
+
         local direction = ""
         local arrow = "?"
         
+        -- Строгая калибровка по сторонам света (0 = Север, 90 = Восток...)
         if angle >= 337.5 or angle < 22.5 then direction = "NORTH (-Z)"; arrow = arrowText.N
         elseif angle >= 22.5 and angle < 67.5 then direction = "N-EAST"; arrow = arrowText.NE
         elseif angle >= 67.5 and angle < 112.5 then direction = "EAST (+X)"; arrow = arrowText.E
@@ -118,31 +103,25 @@ while true do
         elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; arrow = arrowText.NW
         end
         
-        -- Render coordinates block
         term.setBackgroundColor(colors.black)
         term.setTextColor(colors.gray)
         term.setCursorPos(2, 3)  term.write("My Pos: " .. math.floor(x) .. ", " .. math.floor(z))
         term.setCursorPos(2, 4)  term.write("Target: " .. targetX .. ", " .. targetZ)
         
-        -- Render Navigation Info
         if distance <= 2 then
             printCentered(7, " ARRIVED! ", colors.white, colors.green)
             printCentered(8, "You are at target", colors.lightGray, colors.black)
         else
-            -- Print distance and direction text
             term.setTextColor(colors.white)
             term.setCursorPos(2, 6)
             term.write("Dist: " .. distance .. " blocks")
             term.setCursorPos(2, 7)
             term.write("Turn: " .. direction)
             
-            -- Graphical Arrow Display
             printCentered(9, arrow, colors.black, colors.yellow)
         end
     end
     
-    -- Footer reminder
     printCentered(12, "Hold Ctrl+T to exit", colors.lightGray, colors.black)
-    
-    os.sleep(0.5) -- Fast responsive updates (twice per second)
+    os.sleep(0.5)
 end
