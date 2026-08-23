@@ -1,30 +1,27 @@
 CC:TWEAKED GPS NAVIGATOR
 
-Файлы:
-- server.lua — запусти на компьютере-сервере
-- navigator.lua — запусти на компьютере игрока
+This project uses GPS only for navigation. It does not communicate with a server.
 
-Установка:
-1. На серверный компьютер поставь wireless modem, по умолчанию сзади (back).
-2. На компьютер игрока поставь wireless modem, тоже по умолчанию сзади.
-3. Если модем стоит с другой стороны, измени MODEM_SIDE в ОБОИХ файлах.
-4. Скопируй файлы в компьютеры CC:Tweaked. Например через pastebin или вручную.
-5. На сервере выполни: server
-6. На клиенте выполни: navigator
+Files:
+- navigator.lua — run this on the player's ComputerCraft computer.
+- nav.lua — standalone GPS coordinate radar.
+- install.lua — optional installer.
+- server.lua — legacy server-based version; not required or used.
 
-Команды навигатора:
-1 — список сохранённых точек
-2 — сохранить текущую GPS-позицию под именем
-3 — выбрать точку и показывать расстояние/направление
-4 — удалить точку
-5 — показать текущие координаты
+Setup:
+1. Set up at least three GPS satellites: computers with wireless modems running `gps host`.
+2. Place navigator.lua on the player's computer.
+3. Run: navigator
 
-GPS:
-Для работы gps.locate нужны минимум 3 GPS-маяка — компьютера с wireless modem,
-запущенными программой gps host (обычно команда: gps host). Они должны быть
-на разных координатах и иметь доступ к небу/друг к другу по радиоканалу.
+Navigator commands:
+1 — list locally saved points
+2 — save the current GPS position
+3 — select a saved point and show live distance and direction
+4 — delete a saved point
+5 — show current GPS coordinates
 
-Важно:
-- Сервер хранит точки в файле /navigator_points.db.
-- Все компьютеры должны использовать одинаковый CHANNEL и PROTOCOL.
-- Это базовая версия: навигатор показывает направление по X/Z, но сам не двигает игрока.
+GPS requirements:
+`gps.locate()` needs at least three GPS hosts at different coordinates. They need wireless
+radio visibility. Saved points are stored locally in `/navigator_points.db`.
+
+The navigator polls GPS directly and never sends navigation requests to a server.

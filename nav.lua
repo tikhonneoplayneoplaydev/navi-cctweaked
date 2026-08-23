@@ -68,12 +68,12 @@ local radars = {
     NW = { "\\  ", " o ", "   " }
 }
 
--- Переменные для хранения предыдущей позиции (память рендера)
+-- Store the previous position to avoid unnecessary redraws
 local lastX, lastZ = nil, nil
 local firstRender = true
 
 while true do
-    -- Быстрый опрос GPS каждые 0.05 сек (1 тик)
+    -- Poll GPS every 0.05 seconds (one tick)
     os.sleep(0.05)
     
     local gpsX, gpsY, gpsZ = gps.locate(2)

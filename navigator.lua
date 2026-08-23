@@ -1,34 +1,28 @@
--- CC:Tweaked GPS Navigator: navigator.lua
--- Нужен wireless modem на любой стороне компьютера.
+-- CC:Tweaked GPS Navigator
+-- This program uses only gps.locate(). No server or modem is required.
 
-local MODEM_SIDE = "back"
-local CHANNEL = 45821
-local PROTOCOL = "gps_navigator_v1"
-local TIMEOUT = 3
+local DB = "/navigator_points.db"
 
-if not peripheral.isPresent(MODEM_SIDE) or peripheral.getType(MODEM_SIDE) ~= "modem" then
-  error("Модем не найден на стороне " .. MODEM_SIDE .. ". Измени MODEM_SIDE в navigator.lua")
+local function loadPoints()
+  if not fs.exists(DB) then return {} end
+  local file = fs.open(DB, "r")
+  local data = textutils.unserialize(file.readAll())
+  file.close()
+  return type(data) == "table" and data or {}
 end
-local modem = peripheral.wrap(MODEM_SIDE)
-modem.open(CHANNEL)
 
-local function request(action, extra)
-  local id = tostring(os.epoch("utc")) .. tostring(math.random(1000, 9999))
-  local msg = { protocol = PROTOCOL, action = action, requestId = id, sender = os.getComputerID() }
-  if extra then for k, v in pairs(extra) do msg[k] = v end end
-  modem.transmit(CHANNEL, CHANNEL, msg)
-  local timer = os.startTimer(TIMEOUT)
-  while true do
-    local e, p1, _, _, data = os.pullEvent()
-    if e == "modem_message" and type(data) == "table" and data.protocol == PROTOCOL and data.requestId == id then return data end
-    if e == "timer" and p1 == timer then return nil, "Сервер не отвечает" end
-  end
+local function savePoints(points)
+  local file = fs.open(DB, "w")
+  file.write(textutils.serialize(points))
+  file.close()
 end
+
+local points = loadPoints()
 
 local function locate()
   local x, y, z = gps.locate(5)
-  if not x then return nil, "GPS не найден: проверь GPS-маяки" end
-  return { x = x, y = y, z = z }
+  if not x then return nil, "GPS signal not found. Check your GPS satellites." end
+  return { x = math.floor(x), y = math.floor(y), z = math.floor(z) }
 end
 
 local function distance(a, b)
@@ -37,61 +31,67 @@ end
 
 local function direction(a, b)
   local dx, dz = b.x-a.x, b.z-a.z
-  if math.abs(dx) > math.abs(dz) then return dx > 0 and "восток (+X)" or "запад (-X)" end
-  return dz > 0 and "юг (+Z)" or "север (-Z)"
+  if math.abs(dx) > math.abs(dz) then return dx > 0 and "east (+X)" or "west (-X)" end
+  if dz == 0 then return "here" end
+  return dz > 0 and "south (+Z)" or "north (-Z)"
 end
 
 local function showPoints()
-  local r, err = request("list")
-  if not r then printError(err); return end
-  print("Точки:")
+  print("Saved points:")
   local count = 0
-  for name, p in pairs(r.points or {}) do
+  for name, p in pairs(points) do
     print("- " .. name .. ": " .. p.x .. ", " .. p.y .. ", " .. p.z)
     count = count + 1
   end
-  if count == 0 then print("(пусто)") end
+  if count == 0 then print("(none)") end
 end
 
 local function addPoint()
   local p, err = locate()
   if not p then printError(err); return end
-  write("Название точки: "); local name = read()
-  local r, e = request("set", { name = name, point = p })
-  if r and r.ok then print("Сохранено: " .. name .. " (" .. p.x .. ", " .. p.y .. ", " .. p.z .. ")") else printError((r and r.error) or e) end
+  write("Point name: "); local name = read()
+  if name == "" or #name > 32 then printError("Name must be 1-32 characters."); return end
+  points[name] = p
+  savePoints(points)
+  print("Saved " .. name .. " at " .. p.x .. ", " .. p.y .. ", " .. p.z)
 end
 
 local function goTo()
-  write("Название точки: "); local name = read()
-  local r, err = request("get", { name = name })
-  if not r or not r.ok then printError((r and r.error) or err); return end
+  write("Point name: "); local name = read()
+  local target = points[name]
+  if not target then printError("Point not found."); return end
   while true do
-    local p, e = locate()
-    if not p then printError(e); return end
-    local target = r.point
-    print("До " .. name .. ": " .. distance(p, target) .. " блоков, направление: " .. direction(p, target))
-    print("Текущие координаты: " .. p.x .. ", " .. p.y .. ", " .. p.z)
-    print("Нажми любую клавишу для обновления, Q для выхода")
+    local p, err = locate()
+    if not p then printError(err); return end
+    term.clear(); term.setCursorPos(1, 1)
+    print("=== GPS NAVIGATION ===")
+    print("Target: " .. name .. " (" .. target.x .. ", " .. target.y .. ", " .. target.z .. ")")
+    print("Current: " .. p.x .. ", " .. p.y .. ", " .. p.z)
+    print("Distance: " .. distance(p, target) .. " blocks")
+    print("Direction: " .. direction(p, target))
+    if distance(p, target) == 0 then print("You have reached the target!") end
+    print("Press any key to update, Q to exit.")
     local _, key = os.pullEvent("key")
     if key == keys.q then return end
-    term.clear(); term.setCursorPos(1, 1)
   end
 end
 
 while true do
   print("\n=== GPS NAVIGATOR ===")
-  print("1 — показать точки")
-  print("2 — сохранить текущую точку")
-  print("3 — навигация к точке")
-  print("4 — удалить точку")
-  print("5 — мои координаты")
-  print("Q — выход")
-  write("> "); local c = read():lower()
-  if c == "1" then showPoints()
-  elseif c == "2" then addPoint()
-  elseif c == "3" then goTo()
-  elseif c == "4" then
-    write("Название: "); local n = read(); local r, e = request("delete", {name=n}); print((r and r.ok and "Удалено" or ((r and r.error) or e)))
-  elseif c == "5" then local p,e=locate(); if p then print(p.x..", "..p.y..", "..p.z) else printError(e) end
-  elseif c == "q" then break end
+  print("1 - Show saved points")
+  print("2 - Save current GPS position")
+  print("3 - Navigate to a point")
+  print("4 - Delete a point")
+  print("5 - Show current GPS coordinates")
+  print("Q - Exit")
+  write("> "); local choice = read():lower()
+  if choice == "1" then showPoints()
+  elseif choice == "2" then addPoint()
+  elseif choice == "3" then goTo()
+  elseif choice == "4" then
+    write("Point name: "); local name = read()
+    if points[name] then points[name] = nil; savePoints(points); print("Deleted.") else printError("Point not found.") end
+  elseif choice == "5" then
+    local p, err = locate(); if p then print(p.x .. ", " .. p.y .. ", " .. p.z) else printError(err) end
+  elseif choice == "q" then break end
 end

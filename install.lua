@@ -1,56 +1,34 @@
--- CC:Tweaked Navigator installer
--- Помести этот файл в GitHub как install.lua
--- Запуск в CC:Tweaked: install
+-- CC:Tweaked GPS-only Navigator installer
+-- Run this file in CC:Tweaked with: install
 
 local BASE = "https://raw.githubusercontent.com/tikhonneoplayneoplaydev/navigator-cc/refs/heads/main/"
 local files = {
-  { url = "nav.lua",      name = "nav.lua",      required = true },
-  { url = "server.lua",   name = "server.lua",   required = false },
-  { url = "config.lua",   name = "config.lua",   required = false },
+  { url = "navigator.lua", name = "navigator.lua", required = true },
+  { url = "nav.lua",       name = "nav.lua",       required = false },
 }
 
 if not http then
-  error("HTTP API отключён. Включи HTTP в настройках CC:Tweaked.")
+  error("HTTP API is disabled. Enable HTTP in the CC:Tweaked settings.")
 end
 
 local function download(file)
-  write("Скачивание " .. file.url .. "... ")
+  write("Downloading " .. file.url .. "... ")
   local response, err = http.get(BASE .. file.url)
-  if not response then
-    print("ошибка: " .. tostring(err))
-    return false
-  end
+  if not response then print("error: " .. tostring(err)); return false end
   local code = response.getResponseCode and response.getResponseCode() or 200
-  local body = response.readAll()
-  response.close()
-  if code < 200 or code >= 300 then
-    print("не найдено (HTTP " .. code .. ")")
-    return false
-  end
-  local handle = fs.open(file.name, "w")
-  handle.write(body)
-  handle.close()
-  print("OK")
-  return true
+  local body = response.readAll(); response.close()
+  if code < 200 or code >= 300 then print("not found (HTTP " .. code .. ")"); return false end
+  local handle = fs.open(file.name, "w"); handle.write(body); handle.close()
+  print("OK"); return true
 end
 
-term.clear()
-term.setCursorPos(1, 1)
-print("=== NAVIGATOR INSTALLER ===")
-print("Источник: GitHub")
-print("")
-
+term.clear(); term.setCursorPos(1, 1)
+print("=== GPS NAVIGATOR INSTALLER ===")
+print("Source: GitHub\n")
 local failed = false
 for _, file in ipairs(files) do
-  local ok = download(file)
-  if not ok and file.required then failed = true end
+  if not download(file) and file.required then failed = true end
 end
-
-if failed then
-  error("Установка не завершена: обязательный файл не скачан")
-end
-
-print("")
-print("Установка завершена!")
-print("Запуск: nav")
-if fs.exists("server.lua") then print("Сервер точек: server") end
+if failed then error("Installation failed: a required file could not be downloaded") end
+print("\nInstallation complete!")
+print("Run: navigator")
