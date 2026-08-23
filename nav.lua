@@ -68,18 +68,18 @@ local radars = {
     NW = { "\\  ", " o ", "   " }
 }
 
--- Переменные для хранения предыдущей позиции (память рендера)
+-- Store the previous position to avoid unnecessary redraws
 local lastX, lastZ = nil, nil
 local firstRender = true
 
 while true do
-    -- Быстрый опрос GPS каждые 0.05 сек (1 тик)
+    -- Poll GPS every 0.05 seconds (one tick)
     os.sleep(0.05)
     
     local gpsX, gpsY, gpsZ = gps.locate(2)
     
     if not gpsX then
-        -- Если сигнал потерян, выводим ошибку один раз, чтобы не спамить экран
+        -- If the signal is lost, show the error only once
         if lastX ~= "LOST" then
             clearScreen(colors.black)
             term.setBackgroundColor(colors.lightBlue)
@@ -97,7 +97,7 @@ while true do
         local curX = math.floor(gpsX)
         local curZ = math.floor(gpsZ)
         
-        -- УМНАЯ ПРОВЕРКА: Рисуем только если это первый запуск ИЛИ координаты изменились
+        -- Smart check: redraw only on first run or when coordinates change
         if firstRender or curX ~= lastX or curZ ~= lastZ then
             firstRender = false
             lastX = curX
@@ -111,12 +111,12 @@ while true do
             term.clearLine()
             printCentered(1, ">> GPS RADAR ACTIVE <<", colors.black, colors.lightBlue)
             
-            -- Расчеты вектора и расстояния
+            -- Calculate vector and distance
             local dx = targetX - curX
             local dz = targetZ - curZ
             local distance = math.floor(math.sqrt(dx^2 + dz^2))
             
-            -- Вычисление угла азимута Minecraft
+            -- Calculate the Minecraft azimuth angle
             local angle = math.atan2(dx, -dz) * 180 / math.pi
             if angle < 0 then angle = angle + 360 end
 
@@ -133,7 +133,7 @@ while true do
             elseif angle >= 292.5 and angle < 337.5 then direction = "N-WEST"; radIdx = "NW"
             end
             
-            -- Отрисовка текстового блока
+            -- Draw the text block
             term.setBackgroundColor(colors.black)
             term.setTextColor(colors.lime)
             term.setCursorPos(2, 3)  term.write("X: " .. curX)
@@ -165,7 +165,7 @@ while true do
                 term.setTextColor(colors.cyan)
                 term.write(direction)
                 
-                -- Отрисовка радара с жесткими индексами строк
+                -- Draw the radar using fixed row positions
                 local w, h = term.getSize()
                 local radarFrame = radars[radIdx]
                 term.setBackgroundColor(colors.black)
