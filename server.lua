@@ -1,6 +1,6 @@
 -- CC:Tweaked GPS Navigator: server.lua
--- Установи рядом с компьютером modem (лучше wireless modem).
--- Сервер хранит точки в /navigator_points.db
+-- Place a modem next to the computer (a wireless modem is recommended).
+-- The server stores points in /navigator_points.db
 
 local MODEM_SIDE = "back"
 local CHANNEL = 45821
@@ -8,7 +8,7 @@ local PROTOCOL = "gps_navigator_v1"
 local DB = "/navigator_points.db"
 
 if not peripheral.isPresent(MODEM_SIDE) or peripheral.getType(MODEM_SIDE) ~= "modem" then
-  error("Модем не найден на стороне " .. MODEM_SIDE .. ". Измени MODEM_SIDE в server.lua")
+  error("Modem not found on side " .. MODEM_SIDE .. ". Change MODEM_SIDE in server.lua")
 end
 
 local modem = peripheral.wrap(MODEM_SIDE)
@@ -47,11 +47,11 @@ local function handle(message)
     result.points = points
   elseif action == "get" then
     result.point = points[message.name]
-    if not result.point then result.ok = false; result.error = "Точка не найдена" end
+    if not result.point then result.ok = false; result.error = "Point not found" end
   elseif action == "set" then
     local p = message.point
     if not validName(message.name) or type(p) ~= "table" or type(p.x) ~= "number" or type(p.y) ~= "number" or type(p.z) ~= "number" then
-      result.ok = false; result.error = "Неверное имя или координаты"
+      result.ok = false; result.error = "Invalid name or coordinates"
     else
       points[message.name] = { x = math.floor(p.x), y = math.floor(p.y), z = math.floor(p.z) }
       savePoints(points)
@@ -61,16 +61,16 @@ local function handle(message)
     if points[message.name] then
       points[message.name] = nil; savePoints(points)
     else
-      result.ok = false; result.error = "Точка не найдена"
+      result.ok = false; result.error = "Point not found"
     end
   else
-    result.ok = false; result.error = "Неизвестная команда"
+    result.ok = false; result.error = "Unknown command"
   end
   reply(message.sender, result)
 end
 
-print("GPS Navigator server запущен")
-print("Канал: " .. CHANNEL)
+print("GPS Navigator server started")
+print("Channel: " .. CHANNEL)
 while true do
   local event, side, channel, replyChannel, message = os.pullEvent("modem_message")
   if channel == CHANNEL and type(message) == "table" then

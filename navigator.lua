@@ -76,6 +76,45 @@ local function goTo()
   end
 end
 
+local function findModem()
+  for _, side in ipairs(peripheral.getNames()) do
+    if peripheral.getType(side) == "modem" then return side end
+  end
+  return nil
+end
+
+local function configureHost()
+  local side = findModem()
+  if not side then printError("No modem found. A wireless modem is required."); return end
+  print("\n=== GPS HOST SETUP ===")
+  print("1 - Detect coordinates using GPS")
+  print("2 - Enter coordinates manually")
+  write("> "); local mode = read()
+  local x, y, z
+  if mode == "1" then
+    x, y, z = gps.locate(5)
+    if not x then printError("Could not detect coordinates. Enter them manually or check GPS coverage."); return end
+  elseif mode == "2" then
+    write("Host X: "); x = tonumber(read())
+    write("Host Y: "); y = tonumber(read())
+    write("Host Z: "); z = tonumber(read())
+    if not x or not y or not z then printError("Coordinates must be numbers."); return end
+  else return end
+  x, y, z = math.floor(x), math.floor(y), math.floor(z)
+
+  local file = fs.open("startup.lua", "w")
+  file.write("local modem = " .. textutils.serialize(side) .. "\n")
+  file.write("if peripheral.getType(modem) ~= 'modem' then error('Wireless modem not found on ' .. modem) end\n")
+  file.write("rednet.open(modem)\n")
+  file.write("shell.run('gps', 'host', " .. x .. ", " .. y .. ", " .. z .. ")\n")
+  file.close()
+  print("Startup configured at " .. x .. ", " .. y .. ", " .. z .. ".")
+  print("rednet.open and gps host will run automatically after reboot.")
+  print("Starting GPS host now...")
+  rednet.open(side)
+  shell.run("gps", "host", x, y, z)
+end
+
 while true do
   print("\n=== GPS NAVIGATOR ===")
   print("1 - Show saved points")
@@ -83,6 +122,7 @@ while true do
   print("3 - Navigate to a point")
   print("4 - Delete a point")
   print("5 - Show current GPS coordinates")
+  print("6 - Configure GPS host startup")
   print("Q - Exit")
   write("> "); local choice = read():lower()
   if choice == "1" then showPoints()
@@ -93,5 +133,6 @@ while true do
     if points[name] then points[name] = nil; savePoints(points); print("Deleted.") else printError("Point not found.") end
   elseif choice == "5" then
     local p, err = locate(); if p then print(p.x .. ", " .. p.y .. ", " .. p.z) else printError(err) end
+  elseif choice == "6" then configureHost()
   elseif choice == "q" then break end
 end
